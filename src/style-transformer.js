@@ -33,24 +33,22 @@ import {nativeShadow} from './style-settings'
 * :host(:dir[rtl]) -> scopeName:dir(rtl) -> [dir="rtl"] scopeName, scopeName[dir="rtl"]
 
 */
-const SCOPE_NAME = 'style-scope';
+let SCOPE_NAME = 'style-scope';
 
-class StyleTransformer {
-  get SCOPE_NAME() {
-    return SCOPE_NAME;
-  }
+export let StyleTransformer = {
+
   // Given a node and scope name, add a scoping class to each node
   // in the tree. This facilitates transforming css into scoped rules.
-  dom(node, scope, shouldRemoveScope) {
+  dom: function(node, scope, shouldRemoveScope) {
     // one time optimization to skip scoping...
     if (node.__styleScoped) {
       node.__styleScoped = null;
     } else {
       this._transformDom(node, scope || '', shouldRemoveScope);
     }
-  }
+  },
 
-  _transformDom(node, selector, shouldRemoveScope) {
+  _transformDom: function(node, selector, shouldRemoveScope) {
     if (node.nodeType === Node.ELEMENT_NODE) {
       this.element(node, selector, shouldRemoveScope);
     }
@@ -62,9 +60,9 @@ class StyleTransformer {
         this._transformDom(c$[i], selector, shouldRemoveScope);
       }
     }
-  }
+  },
 
-  element(element, scope, shouldRemoveScope) {
+  element: function(element, scope, shouldRemoveScope) {
     // note: if using classes, we add both the general 'style-scope' class
     // as well as the specific scope. This enables easy filtering of all
     // `style-scope` elements
@@ -91,9 +89,9 @@ class StyleTransformer {
         }
       }
     }
-  }
+  },
 
-  elementStyles(element, styleRules, callback) {
+  elementStyles: function(element, styleRules, callback) {
     let cssBuildType = element.__cssBuild;
     // no need to shim selectors if settings.useNativeShadow, also
     // a shady css build will already have transformed selectors
@@ -105,13 +103,13 @@ class StyleTransformer {
     StyleUtil.toCssText(styleRules, callback) :
     this.css(styleRules, element.is, element.extends, callback) + '\n\n';
     return cssText.trim();
-  }
+  },
 
   // Given a string of cssText and a scoping string (scope), returns
   // a string of scoped css where each selector is transformed to include
   // a class created from the scope. ShadowDOM selectors are also transformed
   // (e.g. :host) to use the scoping selector.
-  css(rules, scope, ext, callback) {
+  css: function(rules, scope, ext, callback) {
     let hostScope = this._calcHostScope(scope, ext);
     scope = this._calcElementScope(scope);
     let self = this;
@@ -124,34 +122,34 @@ class StyleTransformer {
         callback(rule, scope, hostScope);
       }
     });
-  }
+  },
 
-  _calcElementScope(scope) {
+  _calcElementScope: function (scope) {
     if (scope) {
       return CSS_CLASS_PREFIX + scope;
     } else {
       return '';
     }
-  }
+  },
 
-  _calcHostScope(scope, ext) {
+  _calcHostScope: function(scope, ext) {
     return ext ? '[is=' +  scope + ']' : scope;
-  }
+  },
 
-  rule(rule, scope, hostScope) {
+  rule: function (rule, scope, hostScope) {
     this._transformRule(rule, this._transformComplexSelector,
       scope, hostScope);
-  }
+  },
 
   // transforms a css rule to a scoped rule.
-  _transformRule(rule, transformer, scope, hostScope) {
+  _transformRule: function(rule, transformer, scope, hostScope) {
     // NOTE: save transformedSelector for subsequent matching of elements
     // against selectors (e.g. when calculating style properties)
     rule.selector = rule.transformedSelector =
       this._transformRuleCss(rule, transformer, scope, hostScope);
-  }
+  },
 
-  _transformRuleCss(rule, transformer, scope, hostScope) {
+  _transformRuleCss: function(rule, transformer, scope, hostScope) {
     let p$ = rule.selector.split(COMPLEX_SELECTOR_SEP);
     // we want to skip transformation of rules that appear in keyframes,
     // because they are keyframe selectors, not element selectors.
@@ -161,9 +159,9 @@ class StyleTransformer {
       }
     }
     return p$.join(COMPLEX_SELECTOR_SEP);
-  }
+  },
 
-  _transformComplexSelector(selector, scope, hostScope) {
+  _transformComplexSelector: function(selector, scope, hostScope) {
     let stop = false;
     selector = selector.trim();
     // Remove spaces inside of selectors like `:nth-of-type` because it confuses SIMPLE_SELECTOR_SEP
@@ -179,9 +177,9 @@ class StyleTransformer {
       return c + s;
     });
     return selector;
-  }
+  },
 
-  _transformCompoundSelector(selector, combinator, scope, hostScope) {
+  _transformCompoundSelector: function(selector, combinator, scope, hostScope) {
     // replace :host with host scoping class
     let slottedIndex = selector.indexOf(SLOTTED);
     if (selector.indexOf(HOST) >= 0) {
@@ -210,16 +208,16 @@ class StyleTransformer {
     selector = selector.replace(DIR_PAREN, (m, before, dir) =>
       `[dir="${dir}"] ${before}, ${before}[dir="${dir}"]`);
     return {value: selector, combinator, stop};
-  }
+  },
 
-  _transformSimpleSelector(selector, scope) {
+  _transformSimpleSelector: function(selector, scope) {
     let p$ = selector.split(PSEUDO_PREFIX);
     p$[0] += scope;
     return p$.join(PSEUDO_PREFIX);
-  }
+  },
 
   // :host(...) -> scopeName...
-  _transformHostSelector(selector, hostScope) {
+  _transformHostSelector: function(selector, hostScope) {
     let m = selector.match(HOST_PAREN);
     let paren = m && m[2].trim() || '';
     if (paren) {
@@ -249,27 +247,28 @@ class StyleTransformer {
     } else {
       return selector.replace(HOST, hostScope);
     }
-  }
+  },
 
-  documentRule(rule) {
+  documentRule: function(rule) {
     // reset selector in case this is redone.
     rule.selector = rule.parsedSelector;
     this.normalizeRootSelector(rule);
     this._transformRule(rule, this._transformDocumentSelector);
-  }
+  },
 
-  normalizeRootSelector(rule) {
+  normalizeRootSelector: function(rule) {
     if (rule.selector === ROOT) {
       rule.selector = 'html';
     }
-  }
+  },
 
-  _transformDocumentSelector(selector) {
+  _transformDocumentSelector: function(selector) {
     return selector.match(SLOTTED) ?
       this._transformComplexSelector(selector, SCOPE_DOC_SELECTOR) :
       this._transformSimpleSelector(selector.trim(), SCOPE_DOC_SELECTOR);
-  }
-}
+  },
+  SCOPE_NAME: SCOPE_NAME
+};
 
 let NTH = /:(nth[-\w]+)\(([^)]+)\)/;
 let SCOPE_DOC_SELECTOR = `:not(.${SCOPE_NAME})`;
@@ -291,5 +290,3 @@ let CSS_CLASS_PREFIX = '.';
 let PSEUDO_PREFIX = ':';
 let CLASS = 'class';
 let SELECTOR_NO_MATCH = 'should_not_match';
-
-export default new StyleTransformer()
